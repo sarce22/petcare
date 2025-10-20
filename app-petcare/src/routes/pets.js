@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import Pet from '../models/pet.js';
+import * as logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -102,6 +103,11 @@ router.post('/', async (req, res, next) => {
 
     const pet = await Pet.create(req.body);
     const formatted = formatPet(pet.toObject({ versionKey: false }));
+    logger.success('Pet created successfully.', {
+      id: formatted.id,
+      name: formatted.name,
+      species: formatted.species
+    });
 
     return res.status(201).json({
       message: 'Pet created successfully.',
@@ -122,6 +128,12 @@ router.get('/', async (req, res, next) => {
       Pet.find().skip(skip).limit(limit).lean(),
       Pet.countDocuments()
     ]);
+    logger.info('Pet listing retrieved.', {
+      count: items.length,
+      total,
+      page,
+      limit
+    });
 
     return res.json({
       message: 'Pets retrieved successfully.',
@@ -143,14 +155,17 @@ router.get('/:id', async (req, res, next) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn('Invalid pet identifier received.', { id });
       return res.status(400).json({ message: 'Pet identifier is not a valid MongoDB ObjectId.' });
     }
 
     const pet = await Pet.findById(id).lean();
 
     if (!pet) {
+      logger.warn('Pet not found when fetching.', { id });
       return res.status(404).json({ message: 'Pet was not found.' });
     }
+    logger.info('Pet retrieved successfully.', { id });
 
     return res.json({
       message: 'Pet retrieved successfully.',
@@ -166,6 +181,7 @@ router.put('/:id', async (req, res, next) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn('Invalid pet identifier received for full update.', { id });
       return res.status(400).json({ message: 'Pet identifier is not a valid MongoDB ObjectId.' });
     }
 
@@ -185,8 +201,10 @@ router.put('/:id', async (req, res, next) => {
     }).lean();
 
     if (!pet) {
+      logger.warn('Pet not found when attempting full update.', { id });
       return res.status(404).json({ message: 'Pet was not found.' });
     }
+    logger.success('Pet replaced successfully.', { id });
 
     return res.json({
       message: 'Pet updated successfully.',
@@ -202,6 +220,7 @@ router.patch('/:id', async (req, res, next) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn('Invalid pet identifier received for partial update.', { id });
       return res.status(400).json({ message: 'Pet identifier is not a valid MongoDB ObjectId.' });
     }
 
@@ -227,8 +246,13 @@ router.patch('/:id', async (req, res, next) => {
     }).lean();
 
     if (!pet) {
+      logger.warn('Pet not found when attempting partial update.', { id });
       return res.status(404).json({ message: 'Pet was not found.' });
     }
+    logger.success('Pet updated successfully.', {
+      id,
+      changes: Object.keys(req.body)
+    });
 
     return res.json({
       message: 'Pet updated successfully.',
@@ -244,14 +268,17 @@ router.delete('/:id', async (req, res, next) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn('Invalid pet identifier received for delete.', { id });
       return res.status(400).json({ message: 'Pet identifier is not a valid MongoDB ObjectId.' });
     }
 
     const result = await Pet.findByIdAndDelete(id).lean();
 
     if (!result) {
+      logger.warn('Pet not found when attempting delete.', { id });
       return res.status(404).json({ message: 'Pet was not found.' });
     }
+    logger.success('Pet deleted successfully.', { id });
 
     return res.json({
       message: 'Pet deleted successfully.'
